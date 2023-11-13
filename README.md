@@ -17,13 +17,13 @@ On a system with Python 3 installed, an environment with these packages can be i
 python3 -m venv loopr_image_segmentation
 
 # Activate the virtual environment
-source loopr_image_segmentation/bin/activate  # On Windows, use `myenv\Scripts\activate`
+source loopr_image_segmentation/bin/activate  # On Windows, use `loopr_image_segmentation\Scripts\activate`
 
 # Now, install the specific versions of the required packages
 pip install scikit-image==0.19.3 matplotlib==3.7.1 numpy==1.23.5 scipy==1.11.3 h5py==3.9.0 tensorflow==2.14.0
 ~~~~
 
-# Pull repo to local environment
+# Clone repo to local environment
 
 To get started with the code in this repository, follow these steps:
 
@@ -42,3 +42,5 @@ To get started with the code in this repository, follow these steps:
 3. Now, you can explore the code and start working with the provided Jupyter notebooks or Python scripts.
 
 If you encounter any issues or have questions, feel free to reach out or open an issue on GitHub.
+
+# 

@@ -1,5 +1,5 @@
 # loopr_image_segmentation
-This repository holds the code to use a UNet for defect segmentation in a data provided by: https://colab.research.google.com/corgiredirector?site=https%3A%2F%2Fwww.kaggle.com%2Fdatasets%2Fnexuswho%2Faitex-fabric-image-database
+This repository holds the code to use a UNet for defect segmentation in a data provided by: https://www.kaggle.com/datasets/nexuswho/aitex-fabric-image-database
 
 # Setting up your environment
 The code in this repository use the following repositories. Please ensure your python environment is installed with the following repos (and versions):

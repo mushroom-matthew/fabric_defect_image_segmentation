@@ -35,7 +35,7 @@ To get started with the code in this repository, follow these steps:
     ```
     *Please note that the default repo name is the same as was used above for the virtual environment. This code will not work if you run it in the parent directory that contains your environment directory.*
     
-2. Now, you can explore the code and start working with the provided Jupyter notebooks or Python scripts.
+2. Now, you can explore the code within the module.
 
 If you encounter any issues or have questions, feel free to reach out or open an issue on GitHub.
 

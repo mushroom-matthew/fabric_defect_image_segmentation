@@ -12,7 +12,7 @@ The code in this repository use the following repositories. Please ensure your p
 - keras version >= 2.14.0
 - pandas version >= 1.5.3
 
-On a system with Python 3 installed, an environment with these packages can be installed with the following bash commands:
+On a system with Python 3 pre-installed, an environment with these packages can be installed with the following bash commands:
 ~~~~
 # Using venv (Python 3.3 and newer)
 python3 -m venv loopr_image_segmentation

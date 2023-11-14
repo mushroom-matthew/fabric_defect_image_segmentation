@@ -33,7 +33,8 @@ To get started with the code in this repository, follow these steps:
     ```bash
     git clone https://github.com/mushroom-matthew/loopr_image_segmentation.git
     ```
-
+    *Please note that the default repo name is the same as was used above for the virtual environment. This code will not work if you run it in the parent directory that contains your environment directory.*
+    
 2. Change into the repository directory:
 
     ```bash

@@ -55,4 +55,4 @@ python3 -m loopr_image_segmentation.scripts.defect_segmentation --model {/absolu
 
 This script can take additional arguments which include save options for masks, logits, and csv reports for found defects.
 
-*Please note that only one model is currently supported. This model is known to be susceptible to false positives (in particular). Reducing the `--grain` input argument can help for those false positives related to edge effects of patch operations. On the other hand, another source of false positives seems related to illumination variations across samples. A v2 model is being trained and will be added upon completion.*
+*Please note that only one model is currently supported. This model is known to be susceptible to false positives (in particular). Reducing the `--grain` input argument can help for those false positives related to edge effects of patch operations. Another known source of false positives seems related to illumination variations across samples. A v2 model is being trained and will be added upon completion.*

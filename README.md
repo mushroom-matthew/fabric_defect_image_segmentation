@@ -49,7 +49,7 @@ If you encounter any issues or have questions, feel free to reach out or open an
 The current supported functionality comes in the form of an inference pipeline. To run that pipeline and generate a printed report, please run the following line of code from outside the `loopr_image_segmentation` module directory.
 
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.defect_segmentation --model /absolute/path/to/loopr_image_segementation/models/pretrained_model.h5 --image /absolute/path/to/image/or/directory/of/images
+python3 -m loopr_image_segmentation.scripts.defect_segmentation --model {/absolute/path/to/}loopr_image_segementation/models/pretrained_model.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/
 ~~~~
 
 This script can take additional arguments which include save options for masks, logits, and csv reports for found defects.

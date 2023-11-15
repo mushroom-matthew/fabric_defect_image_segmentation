@@ -57,6 +57,24 @@ This script can take additional arguments which include save options for masks, 
 
 ~~~~bash
 python3 -m loopr_image_segmentation.scripts.defect_segmentation --help
+
+usage: defect_segmentation.py [-h] --model MODEL --image IMAGE [--grain GRAIN] [--save-label-mask] [--save-logits-map] [--save-reports] [--results-folder RESULTS_FOLDER]
+                              [--reports-folder REPORTS_FOLDER]
+
+Defect Segmentation Script
+
+options:
+  -h, --help            show this help message and exit
+  --model MODEL         Absolute path to the model weights file
+  --image IMAGE         Absolute path to the input image file or directory
+  --grain GRAIN         Stride of patch extraction (smaller grain --> more patches --> more accurate --> longer runtime)
+  --save-label-mask     Save mask images (argmax labeled)
+  --save-logits-map     Save logit images (softmax layer output)
+  --save-reports        Save reports
+  --results-folder RESULTS_FOLDER
+                        Absolute path to the results output folder
+  --reports-folder REPORTS_FOLDER
+                        Absolute path to the reports output folder
 ~~~~
 
 *Please note that there are two models that are currently supported. Unfortunately, both models are known to be susceptible to false positives (in particular). Reducing the `--grain` input argument can help for those false positives related to edge effects of patch operations. Another known source of false positives seems related to illumination variations across samples. The v2 model is a bit better for false positives, but not perfect.*

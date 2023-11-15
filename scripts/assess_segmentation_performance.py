@@ -22,7 +22,7 @@ def parse_args():
 def main():
     args = parse_args()
     assert args.grain <= 64, 'Please do not choose a grain larger than the network input patch size (64x64)'
-    assert args.grain > 0, 'Please do not choose a grain smaller than 1'
+    assert args.grain >= 16, 'Please do not choose a grain smaller than 16 as it may cause memory issues.'
     # Load the model
     model_weights_path = args.model
     image_segmentation = ImageSegmentation(model_weights_path)

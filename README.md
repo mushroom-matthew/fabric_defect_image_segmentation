@@ -41,7 +41,7 @@ If you encounter any issues or have questions, feel free to reach out or open an
 
 # Running inference on an image (or directory of images)
 
-The current supported functionality comes in the form of an inference pipeline. To run that pipeline and generate a printed report, please run the following line of code from outside the `loopr_image_segmentation` module directory.
+To run the inference pipeline and generate a printed defect report, please run the following line of code from outside the `loopr_image_segmentation` module directory.
 
 *v1 model*
 ~~~~bash
@@ -78,3 +78,19 @@ options:
 ~~~~
 
 *Please note that there are two models that are currently supported. Unfortunately, both models are known to be susceptible to false positives (in particular). Reducing the `--grain` input argument can help for those false positives related to edge effects of patch operations. Another known source of false positives seems related to illumination variations across samples. The v2 model is a bit better for false positives, but not perfect.*
+
+# Evaluating the segmentation pipeline performance against ground-truth masks
+
+To evaluate the inference pipeline against a known ground-truth mask and generate a printed performance report, please run the following line of code from outside the `loopr_image_segmentation` module directory.
+
+*v1 model*
+~~~~bash
+python3 -m loopr_image_segmentation.scripts.assess_segmentation_performance --model {/absolute/path/to/}loopr_image_segementation/models/pretrained_model.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/ --mask {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_masks/
+~~~~
+
+*v2 model*
+~~~~bash
+python3 -m loopr_image_segmentation.scripts.assess_segmentation_performance --model {/absolute/path/to/}loopr_image_segementation/models/pretrained_model_v2.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/ --mask {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_masks/
+~~~~
+
+This script can take additional arguments which include save options for masks, logits, and csv reports for found defects. Please see `--help` for more info.

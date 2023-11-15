@@ -6,6 +6,47 @@ from scipy.stats import mode
 import pandas as pd
 from scipy.ndimage import uniform_filter
 
+def recall(predicted, ground_truth):
+    true_positive = np.sum(np.logical_and(ground_truth, predicted))
+    false_negative = np.sum(np.logical_and(ground_truth, np.logical_not(predicted)))
+    if true_positive + false_negative == 0:
+        return 0
+    
+    recall = true_positive / (true_positive + false_negative)
+    return recall
+
+def precision(predicted, ground_truth):
+    true_positive = np.sum(np.logical_and(ground_truth, predicted))
+    false_positive = np.sum(np.logical_and(np.logical_not(ground_truth), predicted))
+    precision = true_positive / (true_positive + false_positive)
+    return precision
+
+def dice(predicted, ground_truth):
+    intersection = np.logical_and(ground_truth, predicted)
+    dice = (2 * np.sum(intersection)) / (np.sum(ground_truth) + np.sum(predicted))
+    return dice
+
+def jaccard(predicted, ground_truth):
+    intersection = np.logical_and(ground_truth, predicted)
+    union = np.logical_or(ground_truth, predicted)
+    
+    # Avoid division by zero
+    if np.sum(union) == 0:
+        return 0.0
+    
+    return np.sum(intersection) / np.sum(union)
+
+def accuracy(predicted, ground_truth):
+    # Ensure both arrays have the same shape
+    assert ground_truth.shape == predicted.shape, "Arrays must have the same shape"
+
+    # Calculate accuracy
+    correct_predictions = np.sum(ground_truth == predicted)
+    total_predictions = np.prod(ground_truth.shape)
+
+    accuracy_value = correct_predictions / total_predictions
+    return accuracy_value
+
 
 def illumination_normalization(image,beta): # adapted from https://www.hindawi.com/journals/isrn/2013/516052/
     gmage = np.log(image.astype(np.float32))
@@ -277,15 +318,51 @@ class ImageSegmentation:
 
         return df
 
-#    def evaluate_performance(self, image_path, mask_path):
+    def evaluate_performance(self, image_path, mask_paths, grain):
         # Evaluate the model's performance against a given mask
-#        segmented_image = self.segment_image(image_path,grain=8)
+        segmented_image, likely_seg_image = self.segment_image(image_path,grain=grain)
         
-#        mask_image = self.load_image(mask_path)   
+        mask_image = np.zeros_like(segmented_image,dtype=np.float32)
+        for mask_path in mask_paths:
+            loi = [i for i,label in enumerate(self.defect_labels) if f"_{label}_" in mask_path]
+            imask_image = self.load_image(mask_path)
+            mask_image += float(loi[0])*(imask_image>0).astype(np.float32)
+        
+        labs = np.union1d(np.unique(mask_image),np.unique(segmented_image))
+        def_l = [self.defect_labels[int(lab)] for lab in labs]
+        acc = []
+        prec = []
+        rec = []
+        dice_ = []
+        iou = []
+        mc = []
+        for lab in labs:
+            S = (segmented_image == lab).astype(np.uint8)
+            M = (mask_image == lab).astype(np.uint8)
+            a,i,d,p,r = self.compute_performance_metrics(S,M)
 
+            acc.append(a)
+            prec.append(p)
+            rec.append(r)
+            dice_.append(d)
+            iou.append(i)
 
+        performance_metrics = pd.DataFrame({'Label':def_l,
+                                            'Accuracy':acc,
+                                            'Precision': prec,
+                                            'Recall': rec,
+                                            'Dice': dice_,
+                                            'IoU':iou})
 
-        #return performance_metrics
+        return performance_metrics, segmented_image, likely_seg_image
+
+    def compute_performance_metrics(self, segmented_image, mask_image):
+        acc = accuracy(segmented_image, mask_image)
+        iou = jaccard(segmented_image, mask_image)
+        dice_ = dice(segmented_image, mask_image)
+        prec = precision(segmented_image, mask_image)
+        rec = recall(segmented_image, mask_image)
+        return acc, iou, dice_, prec, rec
 
  #   def extract_patches(self, image_paths, mask_paths=None):
         # Extract patches from images and masks (if provided)

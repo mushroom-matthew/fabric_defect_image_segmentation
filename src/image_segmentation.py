@@ -36,6 +36,16 @@ def jaccard(predicted, ground_truth):
     
     return np.sum(intersection) / np.sum(union)
 
+def probability_thresholding_default_zero(probabilities, threshold):
+    # Assuming probabilities is a 2D array where each row represents a pixel's probabilities for different classes
+    class_labels = np.argmax(probabilities, axis=-1)  # Select the class with the highest probability
+    max_probabilities = probabilities.max(axis=-1)
+
+    # Apply threshold to probabilities, defaulting to 0 if no class passes the threshold
+    mask = np.where(max_probabilities > threshold, class_labels, 0)
+
+    return mask
+
 def accuracy(predicted, ground_truth):
     # Ensure both arrays have the same shape
     assert ground_truth.shape == predicted.shape, "Arrays must have the same shape"
@@ -118,6 +128,7 @@ class ImageSegmentation:
         # Sizes of the model input and output
         self.input_size = self.unet.input_shape[1:]
         self.output_size = self.unet.output_shape[1:]
+        self.threshold = 0.5
 
     def load_pretrained_model(self, model_weights_path):
         # Define and load your UNet model architecture
@@ -239,7 +250,7 @@ class ImageSegmentation:
 
         return patches
 
-    def segment_image(self, image_path, grain=8):
+    def segment_image(self, image_path, grain=8, post_process='argmax'):
         # Split input image into foreground, background and generate feature image
         feature_image, background_mask = self.generate_feature_images(image_path)
 
@@ -266,7 +277,12 @@ class ImageSegmentation:
                                                           (256, 4096, 11), agg_mode='mean')
         
 
-        segmented_image = np.argmax(likely_seg_image,axis=-1)
+        if post_process == 'argmax':
+            segmented_image = np.argmax(likely_seg_image,axis=-1)
+        elif post_process == 'prob_thresh':
+            segmented_image = probability_thresholding_default_zero(likely_seg_image,threshold=self.threshold)
+        else:
+            Exception('Please provide a supported post processing type')
         #print(f'{segmented_image.shape}')
 
         return segmented_image, likely_seg_image
@@ -318,9 +334,9 @@ class ImageSegmentation:
 
         return df
 
-    def evaluate_performance(self, image_path, mask_paths, grain):
+    def evaluate_performance(self, image_path, mask_paths, grain, post_process):
         # Evaluate the model's performance against a given mask
-        segmented_image, likely_seg_image = self.segment_image(image_path,grain=grain)
+        segmented_image, likely_seg_image = self.segment_image(image_path,grain=grain,post_process=post_process)
         
         mask_image = np.zeros_like(segmented_image,dtype=np.float32)
         for mask_path in mask_paths:
@@ -364,6 +380,20 @@ class ImageSegmentation:
         rec = recall(segmented_image, mask_image)
         return acc, iou, dice_, prec, rec
 
+
+    # def select_optimal_threshold(self, thresholds, metric='iou'):
+    #     best_metric_value = 0
+    #     best_threshold = 0
+
+    #     for threshold in thresholds:
+    #         predicted_masks = self.apply_thresholds(self.generate_probability_scores(), threshold)
+    #         iou, _, _, _, _ = self.evaluate_performance(predicted_masks)
+
+    #         if metric == 'iou' and iou > best_metric_value:
+    #             best_metric_value = iou
+    #             best_threshold = threshold
+
+    #     return best_threshold
  #   def extract_patches(self, image_paths, mask_paths=None):
         # Extract patches from images and masks (if provided)
         # ...

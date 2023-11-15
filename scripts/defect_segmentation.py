@@ -10,6 +10,7 @@ def parse_args():
     parser.add_argument('--model', type=str, required=True, help='Absolute path to the model weights file')
     parser.add_argument('--image', type=str, required=True, help='Absolute path to the input image file or directory')
     parser.add_argument('--grain', type=int, default=64, help='Stride of patch extraction (smaller grain --> more patches --> more accurate --> longer runtime)')
+    parser.add_argument('--post-process', type=str, default='argmax', help='Post-processing method (argmax or prob_thresh)')
     parser.add_argument('--save-label-mask', action='store_true', help='Save mask images (argmax labeled)')
     parser.add_argument('--save-logits-map', action='store_true', help='Save logit images (softmax layer output)')
     parser.add_argument('--save-reports', action='store_true', help='Save reports')
@@ -41,7 +42,7 @@ def main():
 
     # Process each input image
     for image_path in image_paths:
-        segmented_image, likely_seg_image = image_segmentation.segment_image(image_path, args.grain)
+        segmented_image, likely_seg_image = image_segmentation.segment_image(image_path, args.grain, args.post_process)
         
         report_df = image_segmentation.analyze_segmented_mask(segmented_image)
         print(image_path)

@@ -11,6 +11,7 @@ def parse_args():
     parser.add_argument('--image', type=str, required=True, help='Absolute path to the input image file or directory of images')
     parser.add_argument('--mask', type=str, required=True, help='Absolute path to the input image file or directory of images')
     parser.add_argument('--grain', type=int, default=64, help='Stride of patch extraction (smaller grain --> more patches --> more accurate --> longer runtime)')
+    parser.add_argument('--post-process', type=str, default='argmax', help='Post-processing method (argmax or prob_thresh)')
     parser.add_argument('--save-label-mask', action='store_true', help='Save mask images (argmax labeled)')
     parser.add_argument('--save-logits-map', action='store_true', help='Save logit images (softmax layer output)')
     parser.add_argument('--save-reports', action='store_true', help='Save reports')
@@ -52,7 +53,7 @@ def main():
             print(f'There are no input masks with matching name for {image_path}. Please double check your mask input and adjust accordingly.')
             continue
 
-        performance_metrics, segmented_image, likely_seg_image = image_segmentation.evaluate_performance(image_path,mask_paths,args.grain)
+        performance_metrics, segmented_image, likely_seg_image = image_segmentation.evaluate_performance(image_path,mask_paths,args.grain,args.post_process)
 
         print(image_path)
         print('VS')
@@ -79,6 +80,6 @@ def main():
             # Add code to save reports here
             output_path = os.path.join(args.reports_folder, f'{image_name}_performance_report_{image_segmentation.mode}.csv')
             performance_metrics.to_csv(output_path, index=False)
-            
+
 if __name__ == "__main__":
     main()       

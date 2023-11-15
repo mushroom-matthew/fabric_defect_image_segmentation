@@ -51,17 +51,17 @@ def main():
         # Save the segmented image directly using the image name
         if args.save_logits_map:
             for i in range(11):
-                output_path = os.path.join(args.results_folder, f'{image_name}_segmented_{image_segmentation.defect_labels[i]}.png')
+                output_path = os.path.join(args.results_folder, f'{image_name}_segmented_{image_segmentation.defect_labels[i]}_{image_segmentation.mode}.png')
                 plt.imsave(output_path, likely_seg_image[:,:,i])  # Choose an appropriate colormap
 
         if args.save_label_mask:
-            output_path = os.path.join(args.results_folder, f'{image_name}_segmented_labeled.png')
+            output_path = os.path.join(args.results_folder, f'{image_name}_segmented_labeled_{image_segmentation.mode}.png')
             plt.imsave(output_path, segmented_image)  # Choose an appropriate colormap
 
         # Save reports if the flag is set
         if args.save_reports:
             # Add code to save reports here
-            output_path = os.path.join(args.reports_folder, f'{image_name}_defect_report.csv')
+            output_path = os.path.join(args.reports_folder, f'{image_name}_defect_report_{image_segmentation.mode}.csv')
             report_df.to_csv(output_path, index=False)
 
 if __name__ == "__main__":

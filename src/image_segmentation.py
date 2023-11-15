@@ -66,6 +66,12 @@ class ImageSegmentation:
         # Load your pretrained UNet model
         self.defect_labels = ['000','002','006','010','016',
                               '019','022','023','025','030','036']
+        
+        if 'v2' in model_weights_path:
+            self.mode = 'v2'
+        else:
+            self.mode = 'v1'
+
         self.unet = self.load_pretrained_model(model_weights_path)
 
         # Sizes of the model input and output
@@ -152,18 +158,18 @@ class ImageSegmentation:
         segmented = ski.segmentation.watershed(image,marker_start)
         return segmented
        
-    def generate_feature_images(self, image_path, mode='v1'):
+    def generate_feature_images(self, image_path):
         # Load and preprocess a single image
         image = self.load_image(image_path)
         
         image11 = ski.exposure.rescale_intensity(1.0*image,in_range=(0,255))
         image12 = ski.util.invert(image11)
-        if mode == 'v1':
+        if self.mode == 'v1':
             image21 = ski.exposure.equalize_adapthist(image11,16)
             image22 = ski.exposure.equalize_adapthist(image12,16)
             image31 = ski.exposure.adjust_sigmoid(image21)
             image32 = ski.exposure.adjust_sigmoid(image22)
-        elif mode == 'v2':
+        elif self.mode == 'v2':
             image21 = ski.exposure.equalize_adapthist(image11,16)
             image22 = ski.exposure.equalize_adapthist(image12,16)
             image21 = ski.exposure.adjust_sigmoid(image21)
@@ -192,9 +198,9 @@ class ImageSegmentation:
 
         return patches
 
-    def segment_image(self, image_path, grain=8, mode='v1'):
+    def segment_image(self, image_path, grain=8):
         # Split input image into foreground, background and generate feature image
-        feature_image, background_mask = self.generate_feature_images(image_path, mode=mode)
+        feature_image, background_mask = self.generate_feature_images(image_path)
 
         feature_patches = self.split_to_patches(feature_image,self.input_size,(grain,grain,self.input_size[2]))
         background_patches = self.split_to_patches(background_mask,self.input_size[0:2],(grain,grain))

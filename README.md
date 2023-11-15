@@ -43,8 +43,14 @@ If you encounter any issues or have questions, feel free to reach out or open an
 
 The current supported functionality comes in the form of an inference pipeline. To run that pipeline and generate a printed report, please run the following line of code from outside the `loopr_image_segmentation` module directory.
 
+*v1 model*
 ~~~~bash
 python3 -m loopr_image_segmentation.scripts.defect_segmentation --model {/absolute/path/to/}loopr_image_segementation/models/pretrained_model.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/
+~~~~
+
+*v2 model*
+~~~~bash
+python3 -m loopr_image_segmentation.scripts.defect_segmentation --model {/absolute/path/to/}loopr_image_segementation/models/pretrained_model_v2.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/
 ~~~~
 
 This script can take additional arguments which include save options for masks, logits, and csv reports for found defects.
@@ -53,4 +59,4 @@ This script can take additional arguments which include save options for masks, 
 python3 -m loopr_image_segmentation.scripts.defect_segmentation --help
 ~~~~
 
-*Please note that only one model is currently supported. This model is known to be susceptible to false positives (in particular). Reducing the `--grain` input argument can help for those false positives related to edge effects of patch operations. Another known source of false positives seems related to illumination variations across samples. A v2 model is being trained and will be added upon completion.*
+*Please note that there are two models that are currently supported. Unfortunately, both models are known to be susceptible to false positives (in particular). Reducing the `--grain` input argument can help for those false positives related to edge effects of patch operations. Another known source of false positives seems related to illumination variations across samples. The v2 model is a bit better for false positives, but not perfect.*

@@ -6,13 +6,13 @@ from ..src.image_segmentation import ImageSegmentation
 import pandas as pd
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Defect Segmentation Script')
+    parser = argparse.ArgumentParser(description='Segmentation Assessment Script')
     parser.add_argument('--model', type=str, required=True, help='Absolute path to the model weights file')
     parser.add_argument('--image', type=str, required=True, help='Absolute path to the input image file or directory of images')
     parser.add_argument('--mask', type=str, required=True, help='Absolute path to the input image file or directory of images')
     parser.add_argument('--grain', type=int, default=64, help='Stride of patch extraction (smaller grain --> more patches --> more accurate --> longer runtime)')
     parser.add_argument('--post-process', type=str, default='argmax', help='Post-processing method (argmax or prob_thresh)')
-    parser.add_argument('--save-label-mask', action='store_true', help='Save mask images (argmax labeled)')
+    parser.add_argument('--save-label-mask', action='store_true', help='Save mask images (post-process labeled)')
     parser.add_argument('--save-logits-map', action='store_true', help='Save logit images (softmax layer output)')
     parser.add_argument('--save-reports', action='store_true', help='Save reports')
     parser.add_argument('--results-folder', type=str, required=('--save-label-mask' in sys.argv or '--save-logits-map' in sys.argv), help='Absolute path to the results output folder')

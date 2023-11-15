@@ -1,3 +1,4 @@
+import sys
 import os
 import argparse
 import matplotlib.pyplot as plt
@@ -12,8 +13,8 @@ def parse_args():
     parser.add_argument('--save-label-mask', action='store_true', help='Save mask images (argmax labeled)')
     parser.add_argument('--save-logits-map', action='store_true', help='Save logit images (softmax layer output)')
     parser.add_argument('--save-reports', action='store_true', help='Save reports')
-    parser.add_argument('--results-folder', type=str, default='/home/getzinmw/loopr_image_segmentation/loopr_image_segmentation/data/results/', help='Absolute path to the results output folder')
-    parser.add_argument('--reports-folder', type=str, default='/home/getzinmw/loopr_image_segmentation/loopr_image_segmentation/data/reports/', help='Absolute path to the reports output folder')
+    parser.add_argument('--results-folder', type=str, required=('--save-label-mask' in sys.argv or '--save-logits-map' in sys.argv), help='Absolute path to the results output folder')
+    parser.add_argument('--reports-folder', type=str, required='--save-reports' in sys.argv, help='Absolute path to the reports output folder')
     return parser.parse_args()
 
 def main():
@@ -31,10 +32,12 @@ def main():
         image_paths = [args.image]
 
     # Create results folder if it doesn't exist
-    os.makedirs(args.results_folder, exist_ok=True)
+    if args.results_folder:
+        os.makedirs(args.results_folder, exist_ok=True)
 
     # Create reports folder if it doesn't exist
-    os.makedirs(args.reports_folder, exist_ok=True)
+    if args.reports_folder:
+        os.makedirs(args.reports_folder, exist_ok=True)
 
     # Process each input image
     for image_path in image_paths:

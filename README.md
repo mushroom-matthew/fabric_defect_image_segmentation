@@ -43,14 +43,14 @@ If you encounter any issues or have questions, feel free to reach out or open an
 
 To run the inference pipeline and generate a printed defect report, please run the following line of code from outside the `loopr_image_segmentation` module directory.
 
-*v1 model*
+*v1 model - Not currently preloaded*
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.defect_segmentation --model {/absolute/path/to/}loopr_image_segmentation/models/pretrained_model.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/
+~python3~ ~-m~ ~loopr_image_segmentation.scripts.defect_segmentation~ ~--model~ ~{/absolute/path/to/}loopr_image_segmentation/models/pretrained_model.h5~ ~--image~ ~{/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/~
 ~~~~
 
 *v2 model*
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.defect_segmentation --model {/absolute/path/to/}loopr_image_segmentation/models/pretrained_model_v2.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/
+python3 -m loopr_image_segmentation.scripts.defect_segmentation --model {/absolute/path/to/}loopr_image_segmentation/models/30epoch_final_model_weights_v2.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/
 ~~~~
 
 This script can take additional arguments which include save options for masks, logits, and csv reports for found defects.
@@ -87,14 +87,45 @@ options:
 
 To evaluate the inference pipeline against a known ground-truth mask and generate a printed performance report, please run the following line of code from outside the `loopr_image_segmentation` module directory.
 
-*v1 model*
+*v1 model - None currently preloaded*
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.assess_segmentation_performance --model {/absolute/path/to/}loopr_image_segmentation/models/pretrained_model.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/ --mask {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_masks/
+~python3 -m loopr_image_segmentation.scripts.assess_segmentation_performance~ ~--model~ ~{/absolute/path/to/}loopr_image_segmentation/models/pretrained_model.h5~ ~--image~ ~{/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/~ ~--mask~ ~{/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_masks/~
 ~~~~
 
 *v2 model*
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.assess_segmentation_performance --model {/absolute/path/to/}loopr_image_segmentation/models/pretrained_model_v2.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/ --mask {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_masks/
+python3 -m loopr_image_segmentation.scripts.assess_segmentation_performance --model {/absolute/path/to/}loopr_image_segmentation/models/30epoch_final_model_weights_v2.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/ --mask {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_masks/
 ~~~~
 
 This script can take additional arguments which include save options for masks, logits, and csv reports for found defects. Please see `--help` for more info.
+
+# Extracting image/mask data from raw directories for training the resident UNet
+
+The code contained in the module script `prepare_training_data` can be used to prep the data from raw images as supplied in the [kaggle database](https://www.kaggle.com/datasets/nexuswho/aitex-fabric-image-database). There is an assumption that the data has been downloaded and that the images are arranged in the following structure:
+
+~~~~bash
+ParentDirectory
+├── Defect_images
+├── Mask_images
+└── NODefect_images
+~~~~
+
+*The code is case sensitive to the 'NODefect' string in particular.*
+
+Once the data is downloaded to your system and has the above structure, the following command can be run to produce the refined training and validation data. *Refined, in this case, means maximizing the representation of the underrepresented classes in the training dataset.*
+
+~~~~bash
+python3 -m loopr_image_segmentation.scripts.prepare_training_data --preprocess v2 --image-dirs {/absolute/path/to/training/Defect_images} {/absolute/path/to/training/NODefect_images} --mask-dirs {/absolute/path/to/Mask_images} --training-folder {/absolute/path/to/}data/training_data/
+~~~~
+
+The initial patch extraction or the dataset refinement can be achieved by adding `--skip-extract` or `--skip-refine` flags, respectively. Other options can be seen by using `--help`.
+
+# Training the UNet in Segmentation workflow
+
+Once training and validation datasets have been created (some are packaged with this repo in data/training_data), the resident UNet can be trained with the following command.
+
+~~~~bash
+python3 -m loopr_image_segmentation.scripts.train_resident_unet --preprocess v2 --data-path /home/getzinmw/loopr_image_segmentation/loopr_image_segmentation/models/ --training-data /home/getzinmw/loopr_image_segmentation/loopr_image_segmentation/data/training_data/training_patches_pv2.h5 --validation-data /home/getzinmw/loopr_image_segmentation/loopr_image_segmentation/data/training_data/validation_patches_pv2.h5
+~~~~
+
+See `--help` for additional options including an option for initializing a pretrained model for tuning (`--starting-model`). *Please note that v2 models require the 'v2' string in their naming convention.*

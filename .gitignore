@@ -1,6 +1,3 @@
 *pyc
 data/re*/*
-models/weights_unet_redo_selective_training.data-00000-of-00001
-models/weights_unet_redo_selective_training.index
-models/weights_unet_redo.data-00000-of-00001
-models/weights_unet_redo.index
+models/intermediate_weights/*

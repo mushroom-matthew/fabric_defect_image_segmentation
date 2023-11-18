@@ -2,9 +2,11 @@ import os
 import numpy as np
 import skimage as ski
 import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from scipy.stats import mode
 import pandas as pd
 from scipy.ndimage import uniform_filter
+import h5py
 
 def recall(predicted, ground_truth):
     true_positive = np.sum(np.logical_and(ground_truth, predicted))
@@ -113,24 +115,33 @@ def reconstruct_image_from_patches(patches, stride, original_shape, agg_mode='mo
     return np.nan_to_num(reconstructed_image, nan=1)
 
 class ImageSegmentation:
-    def __init__(self, model_weights_path):
+    def __init__(self, model_weights_path, mode=None):
         # Load your pretrained UNet model
-        self.defect_labels = ['000','002','006','010','016',
-                              '019','022','023','025','030','036']
+        self.defect_labels = ['000','002','006','010',
+                              '016','019','022','023',
+                              '025','027','029','030','036']
         
-        if 'v2' in model_weights_path:
-            self.mode = 'v2'
-        else:
-            self.mode = 'v1'
+        self.unet = self.initialize_unet()
 
-        self.unet = self.load_pretrained_model(model_weights_path)
+        if not mode and not model_weights_path:
+            Exception('Please input either a model or a preprocessing mode')
+        
+        if model_weights_path:
+            if 'v2' in model_weights_path:
+                self.mode = 'v2'
+            else:
+                self.mode = 'v1'
+
+            self.load_pretrained_model(model_weights_path)
+        else:
+            self.mode=mode
 
         # Sizes of the model input and output
         self.input_size = self.unet.input_shape[1:]
         self.output_size = self.unet.output_shape[1:]
         self.threshold = 0.5
 
-    def load_pretrained_model(self, model_weights_path):
+    def initialize_unet(self):
         # Define and load your UNet model architecture
         encoder = tf.keras.models.Sequential([
             tf.keras.layers.Conv2D(128, (3, 3), strides=(1, 1), activation='relu', padding='same', input_shape=(64, 64, 6),
@@ -166,7 +177,7 @@ class ImageSegmentation:
                                 kernel_initializer='glorot_uniform')(x)
         x = tf.keras.layers.Conv2D(64,(5,5),strides=(1,1), activation='relu', padding='same',
                                 kernel_initializer='glorot_uniform')(x)
-        x = tf.keras.layers.Conv2D(11,(1,1),strides=(1,1), activation='softmax', padding='same',
+        x = tf.keras.layers.Conv2D(len(self.defect_labels),(1,1),strides=(1,1), activation='softmax', padding='same',
                                 kernel_initializer='glorot_uniform')(x)
         
         # Load the weights
@@ -175,9 +186,14 @@ class ImageSegmentation:
                      loss=tf.keras.losses.CategoricalFocalCrossentropy(),
                      metrics=[tf.keras.metrics.CategoricalAccuracy(),
                               tf.keras.metrics.CategoricalCrossentropy()])
-        unet.load_weights(model_weights_path)
-
+        
         return unet
+
+    def load_pretrained_model(self, model_weights_path):
+        
+        self.unet.load_weights(model_weights_path)
+
+        return
 
     def load_image(self, image_path):
         # Load an image from the given path
@@ -274,7 +290,7 @@ class ImageSegmentation:
                 p[-1] = o.squeeze()  # Use squeeze to remove dimensions of size 1
 
         likely_seg_image = reconstruct_image_from_patches(np.array(p), (grain, grain), 
-                                                          (256, 4096, 11), agg_mode='mean')
+                                                          (256, 4096, 13), agg_mode='mean')
         
 
         if post_process == 'argmax':
@@ -334,15 +350,28 @@ class ImageSegmentation:
 
         return df
 
-    def evaluate_performance(self, image_path, mask_paths, grain, post_process):
-        # Evaluate the model's performance against a given mask
-        segmented_image, likely_seg_image = self.segment_image(image_path,grain=grain,post_process=post_process)
-        
-        mask_image = np.zeros_like(segmented_image,dtype=np.float32)
+    def prepare_mask(self, image, mask_paths=None, type='label'):
+        mask_image = np.zeros_like(image,dtype=np.float32)
         for mask_path in mask_paths:
             loi = [i for i,label in enumerate(self.defect_labels) if f"_{label}_" in mask_path]
             imask_image = self.load_image(mask_path)
             mask_image += float(loi[0])*(imask_image>0).astype(np.float32)
+            del imask_image
+            #print(np.unique(mask_image))
+            if len(np.unique(mask_image)) < 2:
+                return None
+
+        mask_image = mask_image.astype(np.int16)
+        if type == 'one-hot':
+            mask_image = np.eye(len(self.defect_labels))[mask_image]
+
+        return mask_image
+
+    def evaluate_performance(self, image_path, mask_paths, grain, post_process):
+        # Evaluate the model's performance against a given mask
+        segmented_image, likely_seg_image = self.segment_image(image_path,grain=grain,post_process=post_process)
+        
+        mask_image = self.prepare_mask(segmented_image,mask_paths,type='label')
         
         labs = np.union1d(np.unique(mask_image),np.unique(segmented_image))
         def_l = [self.defect_labels[int(lab)] for lab in labs]
@@ -351,7 +380,7 @@ class ImageSegmentation:
         rec = []
         dice_ = []
         iou = []
-        mc = []
+
         for lab in labs:
             S = (segmented_image == lab).astype(np.uint8)
             M = (mask_image == lab).astype(np.uint8)
@@ -381,6 +410,111 @@ class ImageSegmentation:
         return acc, iou, dice_, prec, rec
 
 
+    def training_patch_extraction(self, image_path, mask_paths, grain, max_clean):
+        feature_image, background_mask = self.generate_feature_images(image_path)
+
+        mask_image = self.prepare_mask(feature_image[:,:,0],mask_paths)
+        if mask_image is None:
+            return None, None
+        #print(mask_image.shape)
+        feature_patches = self.split_to_patches(feature_image,self.input_size,(grain,grain,self.input_size[2]))
+        background_patches = self.split_to_patches(background_mask,self.input_size[0:2],(grain,grain))
+        mask_patches = self.split_to_patches(mask_image,self.output_size[0:2],(grain,grain))
+
+
+        del feature_image, background_mask, mask_image
+        patch_indices = np.arange(feature_patches.shape[0])
+        np.random.shuffle(patch_indices)
+
+        d = []
+        p = []
+        clean_patches_from_this_image = 0
+        for i in patch_indices:
+            #print(f.shape)
+            #print(b.shape)
+            #print(f'Patch {i} of {len(feature_patches)}')
+            # p.append(np.zeros(self.output_size))  
+            if np.any(background_patches[i]):
+                #print('Ommitting background patch')
+                continue
+                #print(p[-1][:,:,0])
+            elif np.any(mask_patches[i]>0):
+                d.append(np.concatenate((feature_patches[i],mask_patches[i][:,:,np.newaxis]),axis=-1))
+            else:
+                if clean_patches_from_this_image < max_clean:
+                    p.append(np.concatenate((feature_patches[i],mask_patches[i][:,:,np.newaxis]),axis=-1))
+                    clean_patches_from_this_image += 1
+
+        return d,p
+
+    def train_model(self, data_path, training_data, validation_data, batch_size=32, epochs=10):
+        if not training_data or not validation_data:
+            raise ValueError("Training or validation data is not provided.")
+
+        training = h5py.File(training_data)
+        #print(training['patches'].shape)
+        validation = h5py.File(validation_data)
+        # Define the ImageDataGenerator for training data
+        train_datagen = ImageDataGenerator(
+            # No rescaling needed
+            # Randomly flip images horizontally
+            horizontal_flip=True,
+            # Randomly flip images vertically
+            vertical_flip=True,
+            # Convert y to one-hot encoding
+            #preprocessing_function=self.one_hot_encoding
+        )
+
+        # Define the ImageDataGenerator for validation data
+        val_datagen = ImageDataGenerator(
+            # No rescaling needed for validation data
+            # Convert y to one-hot encoding
+            #preprocessing_function=self.one_hot_encoding
+        )
+
+        # Define the generators for training and validation data
+        train_generator = train_datagen.flow(
+            x=training['patches'][:,:,:,0:6],
+            y=self.one_hot_encoding(training['patches'][:,:,:,6]),
+            batch_size=batch_size,
+            shuffle=True
+        )
+
+        val_generator = val_datagen.flow(
+            x=validation['patches'][:,:,:,0:6],
+            y=self.one_hot_encoding(validation['patches'][:,:,:,6]),
+            batch_size=batch_size,
+            shuffle=False  # No need to shuffle validation data
+        )
+
+        # Define the path for saving weights after each epoch
+        intermediate_dir = f'{data_path}/intermediate_weights'
+        os.makedirs(intermediate_dir, exist_ok=True)
+
+        # Define the ModelCheckpoint callback to save weights after each epoch
+        checkpoint_filepath = f'{intermediate_dir}/{self.mode}_weights_epoch_{{epoch:02d}}.h5'
+        model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+            filepath=checkpoint_filepath,
+            save_weights_only=True,
+            verbose=1
+        )
+
+        # Train the model
+        history = self.unet.fit(
+            train_generator,
+            epochs=epochs,
+            validation_data=val_generator,
+            callbacks=[model_checkpoint_callback]
+        )
+        history_df = pd.DataFrame(history.history)
+        history_df.to_csv(f'{data_path}/{self.mode}_training_history.csv', index=False)
+        # Save the final model
+        self.unet.save_weights(f'{data_path}/final_model_weights_{self.mode}.h5')
+
+    def one_hot_encoding(self, y):
+        # Convert y to one-hot encoding
+        one_hot_y = tf.one_hot(y, depth=len(self.defect_labels), axis=-1)
+        return one_hot_y
     # def select_optimal_threshold(self, thresholds, metric='iou'):
     #     best_metric_value = 0
     #     best_threshold = 0
@@ -394,14 +528,3 @@ class ImageSegmentation:
     #             best_threshold = threshold
 
     #     return best_threshold
- #   def extract_patches(self, image_paths, mask_paths=None):
-        # Extract patches from images and masks (if provided)
-        # ...
-
- #       return image_patches, mask_patches
-
- #  def retrain_model(self, train_data, val_data, epochs=30):
-        # Retrain the UNet model with the given training data
-        # ...
-
- #      return trained_model

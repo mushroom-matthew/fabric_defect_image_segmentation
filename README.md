@@ -43,9 +43,9 @@ If you encounter any issues or have questions, feel free to reach out or open an
 
 To run the inference pipeline and generate a printed defect report, please run the following line of code from outside the `loopr_image_segmentation` module directory.
 
-*v1 model - Not currently preloaded*
+*v1 model - Not currently preloaded, please train your own model (see steps below) to use a v1 model*
 ~~~~bash
-~python3~ ~-m~ ~loopr_image_segmentation.scripts.defect_segmentation~ ~--model~ ~{/absolute/path/to/}loopr_image_segmentation/models/pretrained_model.h5~ ~--image~ ~{/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/~
+python3 -m loopr_image_segmentation.scripts.defect_segmentation --model {/absolute/path/to/}loopr_image_segmentation/models/pretrained_model.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/
 ~~~~
 
 *v2 model*
@@ -87,9 +87,9 @@ options:
 
 To evaluate the inference pipeline against a known ground-truth mask and generate a printed performance report, please run the following line of code from outside the `loopr_image_segmentation` module directory.
 
-*v1 model - None currently preloaded*
+*v1 model - Not currently preloaded, please train your own model (see steps below) to use a v1 model*
 ~~~~bash
-~python3 -m loopr_image_segmentation.scripts.assess_segmentation_performance~ ~--model~ ~{/absolute/path/to/}loopr_image_segmentation/models/pretrained_model.h5~ ~--image~ ~{/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/~ ~--mask~ ~{/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_masks/~
+python3 -m loopr_image_segmentation.scripts.assess_segmentation_performance --model {/absolute/path/to/}loopr_image_segmentation/models/pretrained_model.h5 --image~ {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/ --mask {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_masks/
 ~~~~
 
 *v2 model*

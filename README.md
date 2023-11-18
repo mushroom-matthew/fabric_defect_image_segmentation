@@ -125,7 +125,7 @@ The initial patch extraction or the dataset refinement can be achieved by adding
 Once training and validation datasets have been created (some are packaged with this repo in data/training_data), the resident UNet can be trained with the following command.
 
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.train_resident_unet --preprocess v2 --data-path /home/getzinmw/loopr_image_segmentation/loopr_image_segmentation/models/ --training-data /home/getzinmw/loopr_image_segmentation/loopr_image_segmentation/data/training_data/training_patches_pv2.h5 --validation-data /home/getzinmw/loopr_image_segmentation/loopr_image_segmentation/data/training_data/validation_patches_pv2.h5
+python3 -m loopr_image_segmentation.scripts.train_resident_unet --preprocess v2 --data-path {/absolute/path/to/model/save/directory/such/as}/loopr_image_segmentation/models/ --training-data {/absolute/path/to/training_data/such/as}/training_data/training_patches_pv2.h5 --validation-data {/absolute/path/to/training_data/such/as}/training_data/validation_patches_pv2.h5
 ~~~~
 
 See `--help` for additional options including an option for initializing a pretrained model for tuning (`--starting-model`). *Please note that v2 models require the 'v2' string in their naming convention.*

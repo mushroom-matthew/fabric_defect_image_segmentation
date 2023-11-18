@@ -120,7 +120,7 @@ python3 -m loopr_image_segmentation.scripts.prepare_training_data --preprocess v
 
 The initial patch extraction or the dataset refinement can be achieved by adding `--skip-extract` or `--skip-refine` flags, respectively. Other options can be seen by using `--help`.
 
-# Training the UNet in Segmentation workflow
+# Training the UNet in Segmentation workflow (training data is not supplied at it is >100MB, please run previous step to generate your training data locally)
 
 Once training and validation datasets have been created (some are packaged with this repo in data/training_data), the resident UNet can be trained with the following command.
 

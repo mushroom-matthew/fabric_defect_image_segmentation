@@ -1,3 +1,4 @@
 *pyc
 data/re*/*
 models/intermediate_weights/*
+data/training*/*

@@ -115,13 +115,13 @@ def reconstruct_image_from_patches(patches, stride, original_shape, agg_mode='mo
     return np.nan_to_num(reconstructed_image, nan=1)
 
 class ImageSegmentation:
-    def __init__(self, model_weights_path, mode=None):
+    def __init__(self, model_weights_path, mode=None, lr=0.001):
         # Load your pretrained UNet model
         self.defect_labels = ['000','002','006','010',
                               '016','019','022','023',
                               '025','027','029','030','036']
         
-        self.unet = self.initialize_unet()
+        self.unet = self.initialize_unet(lr)
 
         if not mode and not model_weights_path:
             Exception('Please input either a model or a preprocessing mode')
@@ -141,7 +141,7 @@ class ImageSegmentation:
         self.output_size = self.unet.output_shape[1:]
         self.threshold = 0.5
 
-    def initialize_unet(self):
+    def initialize_unet(self,lr):
         # Define and load your UNet model architecture
         encoder = tf.keras.models.Sequential([
             tf.keras.layers.Conv2D(128, (3, 3), strides=(1, 1), activation='relu', padding='same', input_shape=(64, 64, 6),
@@ -182,7 +182,8 @@ class ImageSegmentation:
         
         # Load the weights
         unet = tf.keras.models.Model(inputs=encoder.input, outputs=x)
-        unet.compile(optimizer='adam',
+        optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
+        unet.compile(optimizer=optimizer,
                      loss=tf.keras.losses.CategoricalFocalCrossentropy(),
                      metrics=[tf.keras.metrics.CategoricalAccuracy(),
                               tf.keras.metrics.CategoricalCrossentropy()])

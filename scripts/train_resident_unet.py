@@ -15,6 +15,7 @@ def parse_args():
     parser.add_argument('--validation-data', type=str, required=True, help='Absolute path to validation data HDF5.')
     parser.add_argument('--batch-size', type=int, default=32, help='Number of patches per batch')
     parser.add_argument('--epochs', type=int, default=30, help='Number of epochs')
+    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     return parser.parse_args()
 
 def main():
@@ -22,7 +23,7 @@ def main():
 
     os.makedirs(args.data_path, exist_ok=True)
     
-    image_segmentation = ImageSegmentation(args.starting_model,mode=args.preprocess)
+    image_segmentation = ImageSegmentation(args.starting_model,mode=args.preprocess,lr=args.lr)
 
     image_segmentation.train_model(args.data_path, args.training_data, 
                                    args.validation_data, args.batch_size, 

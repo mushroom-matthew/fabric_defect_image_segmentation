@@ -20,7 +20,10 @@ def recall(predicted, ground_truth):
 def precision(predicted, ground_truth):
     true_positive = np.sum(np.logical_and(ground_truth, predicted))
     false_positive = np.sum(np.logical_and(np.logical_not(ground_truth), predicted))
-    precision = true_positive / (true_positive + false_positive)
+    if true_positive + false_positive == 0:
+        precision = 0.0
+    else:
+        precision = true_positive / (true_positive + false_positive)
     return precision
 
 def dice(predicted, ground_truth):
@@ -115,7 +118,7 @@ def reconstruct_image_from_patches(patches, stride, original_shape, agg_mode='mo
     return np.nan_to_num(reconstructed_image, nan=1)
 
 class ImageSegmentation:
-    def __init__(self, model_weights_path, mode=None, lr=0.001):
+    def __init__(self, model_weights_path, mode=None, lr=0.001, defect_properties=None):
         # Load your pretrained UNet model
         self.defect_labels = ['000','002','006','010',
                               '016','019','022','023',
@@ -141,7 +144,15 @@ class ImageSegmentation:
         self.output_size = self.unet.output_shape[1:]
         self.threshold = 0.5
 
-    def initialize_unet(self,lr):
+        if defect_properties is None:
+            self.defect_properties = ('area', 'area_bbox', 'area_convex', 'extent', 'axis_major_length',
+                                      'axis_minor_length', 'eccentricity', 'equivalent_diameter_area', 
+                                      'intensity_max', 'intensity_mean', 'intensity_min', 'intensity_std',
+                                      'perimeter', 'solidity', 'centroid')
+        else:
+            self.defect_properties = tuple(defect_properties)
+
+    def initialize_unet(self, lr):
         # Define and load your UNet model architecture
         encoder = tf.keras.models.Sequential([
             tf.keras.layers.Conv2D(128, (3, 3), strides=(1, 1), activation='relu', padding='same', input_shape=(64, 64, 6),
@@ -302,103 +313,102 @@ class ImageSegmentation:
             Exception('Please provide a supported post processing type')
         #print(f'{segmented_image.shape}')
 
-        return segmented_image, likely_seg_image
+        return segmented_image, likely_seg_image, feature_image
 
-    def analyze_segmented_mask(self, segmented_image):
+    def extract_properties(self, component_props, label_props):
+        # extracted_properties = {'Label': self.defect_labels[region_label]}
+        extracted_properties = {'label': self.defect_labels[int(getattr(label_props, 'intensity_mean', None))]}
+        for prop in self.defect_properties:
 
-        regions = ski.measure.regionprops(segmented_image)
+            if not isinstance(prop, str):
+                raise ValueError("Property names in self.defect_properties must be strings.")
+        
+            # Ensure component_props[0] has an attribute with the given property name
+            if not hasattr(component_props, prop):
+                if prop == 'intensity_std':
+                    extracted_properties[prop] = np.std(component_props.image_intensity[component_props.image])
+                else:
+                    raise AttributeError(f"Property '{prop}' not found in component_props.")
 
-        # Initialize lists to store properties
-        labels = []
-        areas = []
-        eccentricities = []
-        loc_row = []
-        loc_col = []
+            extracted_properties[prop] = getattr(component_props, prop, None)
 
-        # Iterate through each labeled region
-        for region in regions:
-            # Extract properties of connected components within the labeled region
-            connected_components = ski.measure.label(region.image)
+        return extracted_properties
+    
+    def analyze_segmented_mask(self, segmented_image, image, defect_labels, matching_masks, image_path, skip_bg=False):
+        labels = np.unique(segmented_image)
+        for label in labels:
+            if label == 0.0 and skip_bg:
+                continue
 
-            # Iterate through each connected component
-            for component_label in np.unique(connected_components)[1:]:
-                component_mask = connected_components == component_label
-                component_props = ski.measure.regionprops(component_mask.astype(np.uint8))
+            connected_components = ski.measure.label(np.equal(segmented_image,label))
+            w = ski.measure.regionprops(connected_components, segmented_image)
+            regions = ski.measure.regionprops(connected_components, image)
+            properties_list = []
+            for ww,region in zip(w,regions):
+                properties_dict = self.extract_properties(region, ww)
+                properties_dict['defect'] = ' '.join(defect_labels)
+                properties_dict['masks'] = ' '.join(matching_masks)
+                properties_dict['image'] = image_path
+                properties_list.append(properties_dict)
 
-                # Extract properties
-                label = self.defect_labels[region.label]
-                area = component_props[0].area
-                eccentricity = component_props[0].eccentricity
-                centroid = component_props[0].centroid
-
-                # Append properties to lists
-                labels.append(label)
-                areas.append(area)
-                eccentricities.append(eccentricity)
-                loc_row.append(centroid[0])
-                loc_col.append(centroid[1])
-
-        # Create a DataFrame with the collected properties
-        data = {
-            'Label': labels,
-            'Area': areas,
-            'Eccentricity': eccentricities,
-            'Location_row': loc_row,
-            'Location_col': loc_col
-        }
-
-        df = pd.DataFrame(data)
-
+        df = pd.DataFrame(properties_list)
         return df
 
     def prepare_mask(self, image, mask_paths=None, type='label'):
         mask_image = np.zeros_like(image,dtype=np.float32)
+        defect_labels = ['000']
         for mask_path in mask_paths:
-            loi = [i for i,label in enumerate(self.defect_labels) if f"_{label}_" in mask_path]
+            loi, defect_labels = map(list, zip(*[(i,label) for i,label in enumerate(self.defect_labels) if f"_{label}_" in mask_path]))
+            
             imask_image = self.load_image(mask_path)
             mask_image += float(loi[0])*(imask_image>0).astype(np.float32)
             del imask_image
             #print(np.unique(mask_image))
-            if len(np.unique(mask_image)) < 2:
-                return None
+        
+        if len(np.unique(mask_image)) < 2:
+            return None, None
 
         mask_image = mask_image.astype(np.int16)
         if type == 'one-hot':
             mask_image = np.eye(len(self.defect_labels))[mask_image]
 
-        return mask_image
+        return mask_image, defect_labels
 
     def evaluate_performance(self, image_path, mask_paths, grain, post_process):
         # Evaluate the model's performance against a given mask
-        segmented_image, likely_seg_image = self.segment_image(image_path,grain=grain,post_process=post_process)
+        segmented_image, likely_seg_image, _ = self.segment_image(image_path,grain=grain,post_process=post_process)
         
-        mask_image = self.prepare_mask(segmented_image,mask_paths,type='label')
-        
-        labs = np.union1d(np.unique(mask_image),np.unique(segmented_image))
-        def_l = [self.defect_labels[int(lab)] for lab in labs]
-        acc = []
-        prec = []
-        rec = []
-        dice_ = []
-        iou = []
+        mask_image, _ = self.prepare_mask(segmented_image,mask_paths,type='label')
+        if isinstance(mask_image,np.ndarray):
+            labs = np.union1d(np.unique(mask_image),np.unique(segmented_image))
+            def_l = [self.defect_labels[int(lab)] for lab in labs]
+            acc = []
+            prec = []
+            rec = []
+            dice_ = []
+            iou = []
 
-        for lab in labs:
-            S = (segmented_image == lab).astype(np.uint8)
-            M = (mask_image == lab).astype(np.uint8)
-            a,i,d,p,r = self.compute_performance_metrics(S,M)
+            for lab in labs:
+                S = (segmented_image == lab).astype(np.uint8)
+                M = (mask_image == lab).astype(np.uint8)
+                a,i,d,p,r = self.compute_performance_metrics(S,M)
 
-            acc.append(a)
-            prec.append(p)
-            rec.append(r)
-            dice_.append(d)
-            iou.append(i)
+                acc.append(a)
+                prec.append(p)
+                rec.append(r)
+                dice_.append(d)
+                iou.append(i)
 
-        performance_metrics = pd.DataFrame({'Label':def_l,
-                                            'Accuracy':acc,
-                                            'Precision': prec,
-                                            'Recall': rec,
-                                            'Dice': dice_,
-                                            'IoU':iou})
+            performance_metrics = pd.DataFrame({'Label':def_l,
+                                                'Accuracy':acc,
+                                                'Precision': prec,
+                                                'Recall': rec,
+                                                'Dice': dice_,
+                                                'IoU':iou})
+        else:
+            performance_metrics = None
+            print('Ground-truth mask was empty, but a defect is indicated in the image based on the name/directory of the image.\n**No performance metrics were computed**.')
+
 
         return performance_metrics, segmented_image, likely_seg_image
 
@@ -414,7 +424,7 @@ class ImageSegmentation:
     def training_patch_extraction(self, image_path, mask_paths, grain, max_clean):
         feature_image, background_mask = self.generate_feature_images(image_path)
 
-        mask_image = self.prepare_mask(feature_image[:,:,0],mask_paths)
+        mask_image, _ = self.prepare_mask(feature_image[:,:,0],mask_paths)
         if mask_image is None:
             return None, None
         #print(mask_image.shape)
@@ -516,6 +526,27 @@ class ImageSegmentation:
         # Convert y to one-hot encoding
         one_hot_y = tf.one_hot(y, depth=len(self.defect_labels), axis=-1)
         return one_hot_y
+
+    def compile_prior_table(self, image_paths, mask_paths):
+        dfs = []
+
+        for image_path in image_paths:
+            matching_masks = [mask_path for mask_path in mask_paths if os.path.basename(image_path)[:-4] in mask_path]
+            if not matching_masks:
+                print(f'There are no input masks with matching names for {image_path}. Please double-check your mask input and adjust accordingly.')
+                continue
+            print(matching_masks)
+            feature_image, _ = self.generate_feature_images(image_path)
+            mask_image, defect_labels = self.prepare_mask(feature_image[:,:,0], matching_masks)  # Implement your mask preparation logic here
+            
+            if isinstance(mask_image, np.ndarray):
+                df = self.analyze_segmented_mask(mask_image, feature_image[:,:,0:3], defect_labels, matching_masks, image_path, skip_bg=True)
+                dfs.append(df)
+            else:
+                print('Mask had no defects. Skipped in table')
+
+        results = pd.concat(dfs)
+        return results
     # def select_optimal_threshold(self, thresholds, metric='iou'):
     #     best_metric_value = 0
     #     best_threshold = 0

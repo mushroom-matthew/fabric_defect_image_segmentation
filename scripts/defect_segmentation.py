@@ -42,9 +42,9 @@ def main():
 
     # Process each input image
     for image_path in image_paths:
-        segmented_image, likely_seg_image = image_segmentation.segment_image(image_path, args.grain, args.post_process)
+        segmented_image, likely_seg_image, feature_image = image_segmentation.segment_image(image_path, args.grain, args.post_process)
         
-        report_df = image_segmentation.analyze_segmented_mask(segmented_image)
+        report_df = image_segmentation.analyze_segmented_mask(segmented_image,feature_image[:,:,0:3],[''],[''],image_path,skip_bg=True)
         print(image_path)
         print('------------------  Defect Report  ------------------')
         print(report_df.to_string(index=False))

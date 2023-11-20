@@ -52,18 +52,25 @@ def main():
         if len(mask_paths) == 0:
             print(f'There are no input masks with matching name for {image_path}. Please double check your mask input and adjust accordingly.')
             continue
-
-        performance_metrics, segmented_image, likely_seg_image = image_segmentation.evaluate_performance(image_path,mask_paths,args.grain,args.post_process)
-
-        print(image_path)
-        print('VS')
         print(mask_paths)
-        print('----------  Segmentation Performance Report  ----------')
-        print(performance_metrics.to_string(index=False))
-        print('-------------------------------------------------------')
+        performance_metrics, segmented_image, likely_seg_image = image_segmentation.evaluate_performance(image_path,mask_paths,args.grain,args.post_process)
 
         # Extract the image file name without the extension
         image_name = os.path.splitext(os.path.basename(image_path))[0]
+
+        if isinstance(performance_metrics,pd.DataFrame):
+            print(image_path)
+            print('VS')
+            print(mask_paths)
+            print('----------  Segmentation Performance Report  ----------')
+            print(performance_metrics.to_string(index=False))
+            print('-------------------------------------------------------')
+
+            if args.save_reports:
+                # Add code to save reports here
+                output_path = os.path.join(args.reports_folder, f'{image_name}_performance_report_{image_segmentation.mode}.csv')
+                performance_metrics.to_csv(output_path, index=False)
+
 
         # Save the segmented image directly using the image name
         if args.save_logits_map:
@@ -76,10 +83,6 @@ def main():
             plt.imsave(output_path, segmented_image)  # Choose an appropriate colormap
 
         # Save reports if the flag is set
-        if args.save_reports:
-            # Add code to save reports here
-            output_path = os.path.join(args.reports_folder, f'{image_name}_performance_report_{image_segmentation.mode}.csv')
-            performance_metrics.to_csv(output_path, index=False)
-
+        
 if __name__ == "__main__":
     main()       

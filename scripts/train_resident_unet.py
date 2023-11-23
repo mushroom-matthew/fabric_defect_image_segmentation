@@ -16,6 +16,7 @@ def parse_args():
     parser.add_argument('--batch-size', type=int, default=32, help='Number of patches per batch')
     parser.add_argument('--epochs', type=int, default=30, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
+    parser.add_argument('--spatial-attention', action='store_true', help='Use Spatial Attention Module on Embedding')
     return parser.parse_args()
 
 def main():
@@ -23,7 +24,7 @@ def main():
 
     os.makedirs(args.data_path, exist_ok=True)
     
-    image_segmentation = ImageSegmentation(args.starting_model,mode=args.preprocess,lr=args.lr)
+    image_segmentation = ImageSegmentation(args.starting_model,mode=args.preprocess,lr=args.lr,spatial_attention=args.spatial_attention)
 
     image_segmentation.train_model(args.data_path, args.training_data, 
                                    args.validation_data, args.batch_size, 

@@ -7,6 +7,29 @@ from scipy.stats import mode
 import pandas as pd
 from scipy.ndimage import uniform_filter
 import h5py
+from tensorflow.keras.layers import Layer, Conv2D, Concatenate, Activation
+
+class SpatialAttentionModule(Layer):
+    def __init__(self, **kwargs):
+        super(SpatialAttentionModule, self).__init__(**kwargs)
+
+        # Convolutional layer for feature descriptor
+        self.convolution = tf.keras.layers.Conv2D(1, (4, 4), padding='same', activation='sigmoid')
+
+    def call(self, inputs):
+        # Apply max-pooling and average-pooling along the channel axis
+        max_pooled = tf.math.reduce_max(inputs,axis=-1,keepdims=True)
+        avg_pooled = tf.math.reduce_mean(inputs,axis=-1,keepdims=True)
+        # Concatenate the pooled features
+        concatenated_features = Concatenate(axis=-1)([max_pooled, avg_pooled])
+
+        # Apply convolutional layer with Sigmoid activation
+        attention_map = self.convolution(concatenated_features)
+
+        # Multiply the input features with the attention map
+        output = tf.multiply(inputs, attention_map)
+
+        return output
 
 def recall(predicted, ground_truth):
     true_positive = np.sum(np.logical_and(ground_truth, predicted))
@@ -118,18 +141,26 @@ def reconstruct_image_from_patches(patches, stride, original_shape, agg_mode='mo
     return np.nan_to_num(reconstructed_image, nan=1)
 
 class ImageSegmentation:
-    def __init__(self, model_weights_path, mode=None, lr=0.001, defect_properties=None):
+    def __init__(self, model_weights_path, mode=None, lr=0.001, defect_properties=None, spatial_attention=False):
         # Load your pretrained UNet model
         self.defect_labels = ['000','002','006','010',
                               '016','019','022','023',
                               '025','027','029','030','036']
         
-        self.unet = self.initialize_unet(lr)
-
         if not mode and not model_weights_path:
-            Exception('Please input either a model or a preprocessing mode')
+            Exception('Please input either a model or a preprocessing mode')        
         
         if model_weights_path:
+            if spatial_attention is False:
+                if '_sa_' in model_weights_path:
+                    spatial_attention = True
+                
+            self.spatial_attention = spatial_attention
+            if self.spatial_attention:
+                self.unet = self.initialize_saunet(lr)
+            else:
+                self.unet = self.initialize_unet(lr)
+
             if 'v2' in model_weights_path:
                 self.mode = 'v2'
             else:
@@ -201,11 +232,79 @@ class ImageSegmentation:
         
         return unet
 
+    def initialize_saunet(self, lr):
+        # Define and load your UNet model architecture
+        encoder = tf.keras.models.Sequential([
+            tf.keras.layers.Conv2D(128, (3, 3), strides=(1, 1), activation='relu', padding='same', input_shape=(64, 64, 6),
+                                kernel_initializer='glorot_uniform'),
+            tf.keras.layers.Conv2D(128, (3, 3), strides=(2, 2), activation='relu', padding='same', input_shape=(64, 64, 6),
+                                kernel_initializer='glorot_uniform'),
+            tf.keras.layers.Dropout(0.2),  # Add Dropout
+            tf.keras.layers.Conv2D(64, (3, 3), strides=(1, 1), activation='relu', padding='same',
+                                kernel_initializer='glorot_uniform'),
+            tf.keras.layers.Conv2D(64, (3, 3), strides=(2, 2), activation='relu', padding='same',
+                                kernel_initializer='glorot_uniform'),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Conv2D(32, (3, 3), strides=(1, 1), activation='relu', padding='same',
+                                kernel_initializer='glorot_uniform'),
+            tf.keras.layers.Conv2D(32, (3, 3), strides=(2, 2), activation='relu', padding='same',
+                                kernel_initializer='glorot_uniform'),
+        ])
+
+        x = encoder.output
+        x = tf.keras.layers.Conv2DTranspose(32,(3,3),strides=(2,2), activation='relu', padding='same',
+                                kernel_initializer='glorot_uniform')(x)
+        x = tf.keras.layers.Concatenate()([x,encoder.layers[6].output])
+        x = tf.keras.layers.Conv2DTranspose(64,(3,3),strides=(1,1), activation='relu', padding='same',
+                                kernel_initializer='glorot_uniform')(x)
+        x = tf.keras.layers.Conv2DTranspose(64,(3,3),strides=(2,2), activation='relu', padding='same',
+                                kernel_initializer='glorot_uniform')(x)
+        x = tf.keras.layers.Concatenate()([x,SpatialAttentionModule()(encoder.layers[3].output)])
+        x = tf.keras.layers.Conv2DTranspose(128,(3,3),strides=(1,1), activation='relu', padding='same',
+                                kernel_initializer='glorot_uniform')(x)
+        x = tf.keras.layers.Conv2DTranspose(128,(3,3),strides=(2,2), activation='relu', padding='same',
+                                kernel_initializer='glorot_uniform')(x)
+        x = tf.keras.layers.Conv2D(64,(5,5),strides=(1,1), activation='relu', padding='same',
+                                kernel_initializer='glorot_uniform')(x)
+        x = tf.keras.layers.Conv2D(64,(5,5),strides=(1,1), activation='relu', padding='same',
+                                kernel_initializer='glorot_uniform')(x)
+        x = tf.keras.layers.Conv2D(len(self.defect_labels),(1,1),strides=(1,1), activation='softmax', padding='same',
+                                kernel_initializer='glorot_uniform')(x)
+        
+        # Load the weights
+        unet = tf.keras.models.Model(inputs=encoder.input, outputs=x)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
+        unet.compile(optimizer=optimizer,
+                     loss=tf.keras.losses.CategoricalFocalCrossentropy(),
+                     metrics=[tf.keras.metrics.CategoricalAccuracy(),
+                              tf.keras.metrics.CategoricalCrossentropy()])
+        
+        return unet
+
     def load_pretrained_model(self, model_weights_path):
         
         self.unet.load_weights(model_weights_path)
 
         return
+
+    def initialize_cnn_pp(self, lr):
+
+        post_process = tf.keras.Sequential([
+            tf.keras.layers.Conv2D(64, (3,3), activation='relu',
+                                   padding='same', input_shape=(256,4096,19)),
+            tf.keras.layers.Conv2D(64, (3,3), activation='relu',
+                                   padding='same'),
+            tf.keras.layers.Conv2D(13, (1,1), activation='softmax',
+                                   padding='same')
+        ])
+        optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
+        post_process.compile(optimizer=optimizer,
+                             loss=tf.keras.losses.CategoricalFocalCrossentropy(),
+                             metrics=[tf.keras.metrics.CategoricalAccuracy(),
+                                      tf.keras.metrics.CategoricalCrossentropy()])
+
+        return post_process
+        
 
     def load_image(self, image_path):
         # Load an image from the given path
@@ -365,8 +464,8 @@ class ImageSegmentation:
             del imask_image
             #print(np.unique(mask_image))
         
-        if len(np.unique(mask_image)) < 2:
-            return None, None
+            if len(np.unique(mask_image)) < 2:
+                return None, None
 
         mask_image = mask_image.astype(np.int16)
         if type == 'one-hot':
@@ -503,7 +602,11 @@ class ImageSegmentation:
         os.makedirs(intermediate_dir, exist_ok=True)
 
         # Define the ModelCheckpoint callback to save weights after each epoch
-        checkpoint_filepath = f'{intermediate_dir}/{self.mode}_weights_epoch_{{epoch:02d}}.h5'
+        if not self.spatial_attention:
+            checkpoint_filepath = f'{intermediate_dir}/{self.mode}_weights_epoch_{{epoch:02d}}.h5'
+        else:
+            checkpoint_filepath = f'{intermediate_dir}/{self.mode}_sa_weights_epoch_{{epoch:02d}}.h5'
+
         model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
             filepath=checkpoint_filepath,
             save_weights_only=True,
@@ -518,9 +621,15 @@ class ImageSegmentation:
             callbacks=[model_checkpoint_callback]
         )
         history_df = pd.DataFrame(history.history)
-        history_df.to_csv(f'{data_path}/{self.mode}_training_history.csv', index=False)
+        if not self.spatial_attention:
+            history_df.to_csv(f'{data_path}/{self.mode}_training_history.csv', index=False)
+            self.unet.save_weights(f'{data_path}/final_model_weights_{self.mode}.h5')
+
+        else:
+            history_df.to_csv(f'{data_path}/{self.mode}_sa_training_history.csv', index=False)
+            self.unet.save_weights(f'{data_path}/final_sa_model_weights_{self.mode}.h5')
+
         # Save the final model
-        self.unet.save_weights(f'{data_path}/final_model_weights_{self.mode}.h5')
 
     def one_hot_encoding(self, y):
         # Convert y to one-hot encoding

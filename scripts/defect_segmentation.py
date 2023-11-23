@@ -54,7 +54,7 @@ def main():
 
         # Save the segmented image directly using the image name
         if args.save_logits_map:
-            for i in range(11):
+            for i in range(likely_seg_image.shape[2]):
                 output_path = os.path.join(args.results_folder, f'{image_name}_segmented_{image_segmentation.defect_labels[i]}_{image_segmentation.mode}.png')
                 plt.imsave(output_path, likely_seg_image[:,:,i])  # Choose an appropriate colormap
 

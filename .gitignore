@@ -2,3 +2,4 @@
 data/re*/*
 models/intermediate_weights/*
 data/training*/*h5
+src/shape_attentive_segmentation.py

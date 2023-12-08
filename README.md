@@ -1,4 +1,4 @@
-# loopr_image_segmentation
+# fabric_defect_image_segmentation
 This repository holds the code to use a UNet for defect segmentation in a data provided by: https://www.kaggle.com/datasets/nexuswho/aitex-fabric-image-database
 
 # Setting up your environment
@@ -15,10 +15,10 @@ The code in this repository use the following repositories. Please ensure your p
 On a system with Python 3 pre-installed, an environment with these packages can be installed with the following bash commands:
 ~~~~
 # Using venv (Python 3.3 and newer)
-python3 -m venv loopr_image_segmentation
+python3 -m venv fabric_defect_image_segmentation
 
 # Activate the virtual environment
-source loopr_image_segmentation/bin/activate  # On Windows, use `loopr_image_segmentation\Scripts\activate`
+source fabric_defect_image_segmentation/bin/activate  # On Windows, use `fabric_defect_image_segmentation\Scripts\activate`
 
 # Now, install the specific versions of the required packages
 pip install scikit-image==0.19.3 matplotlib==3.7.1 numpy==1.23.5 scipy==1.11.3 h5py==3.9.0 tensorflow==2.14.0 pandas==1.5.3
@@ -31,7 +31,7 @@ To get started with the code in this repository, follow these steps:
 1. Clone the repository to your local machine:
 
     ```bash
-    git clone https://github.com/mushroom-matthew/loopr_image_segmentation.git
+    git clone https://github.com/mushroom-matthew/fabric_defect_image_segmentation.git
     ```
     *Please note that the default repo name is the same as was used above for the virtual environment. This code will not work if you run it in the parent directory that contains your environment directory.*
     
@@ -41,22 +41,22 @@ If you encounter any issues or have questions, feel free to reach out or open an
 
 # Running inference on an image (or directory of images)
 
-To run the inference pipeline and generate a printed defect report, please run the following line of code from outside the `loopr_image_segmentation` module directory.
+To run the inference pipeline and generate a printed defect report, please run the following line of code from outside the `fabric_defect_image_segmentation` module directory.
 
 *v1 model - Not currently preloaded, please train your own model (see steps below) to use a v1 model*
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.defect_segmentation --model {/absolute/path/to/}loopr_image_segmentation/models/pretrained_model.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/
+python3 -m fabric_defect_image_segmentation.scripts.defect_segmentation --model {/absolute/path/to/}fabric_defect_image_segmentation/models/pretrained_model.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}fabric_defect_image_segmentation/data/sample_data/
 ~~~~
 
 *v2 model*
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.defect_segmentation --model {/absolute/path/to/}loopr_image_segmentation/models/30epoch_final_model_weights_v2.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/
+python3 -m fabric_defect_image_segmentation.scripts.defect_segmentation --model {/absolute/path/to/}fabric_defect_image_segmentation/models/30epoch_final_model_weights_v2.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}fabric_defect_image_segmentation/data/sample_data/
 ~~~~
 
 This script can take additional arguments which include save options for masks, logits, and csv reports for found defects.
 
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.defect_segmentation --help
+python3 -m fabric_defect_image_segmentation.scripts.defect_segmentation --help
 
 usage: defect_segmentation.py [-h] --model MODEL --image IMAGE [--grain GRAIN] [--post-process POST_PROCESS] [--save-label-mask] [--save-logits-map] [--save-reports] [--results-folder RESULTS_FOLDER]
                               [--reports-folder REPORTS_FOLDER]
@@ -85,16 +85,16 @@ options:
 
 # Evaluating the segmentation pipeline performance against ground-truth masks
 
-To evaluate the inference pipeline against a known ground-truth mask and generate a printed performance report, please run the following line of code from outside the `loopr_image_segmentation` module directory.
+To evaluate the inference pipeline against a known ground-truth mask and generate a printed performance report, please run the following line of code from outside the `fabric_defect_image_segmentation` module directory.
 
 *v1 model - Not currently preloaded, please train your own model (see steps below) to use a v1 model*
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.assess_segmentation_performance --model {/absolute/path/to/}loopr_image_segmentation/models/pretrained_model.h5 --image~ {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/ --mask {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_masks/
+python3 -m fabric_defect_image_segmentation.scripts.assess_segmentation_performance --model {/absolute/path/to/}fabric_defect_image_segmentation/models/pretrained_model.h5 --image~ {/absolute/path/to/image/or/directory/of/images/such/as/}fabric_defect_image_segmentation/data/sample_data/ --mask {/absolute/path/to/image/or/directory/of/images/such/as/}fabric_defect_image_segmentation/data/sample_masks/
 ~~~~
 
 *v2 model*
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.assess_segmentation_performance --model {/absolute/path/to/}loopr_image_segmentation/models/30epoch_final_model_weights_v2.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_data/ --mask {/absolute/path/to/image/or/directory/of/images/such/as/}loopr_image_segmentation/data/sample_masks/
+python3 -m fabric_defect_image_segmentation.scripts.assess_segmentation_performance --model {/absolute/path/to/}fabric_defect_image_segmentation/models/30epoch_final_model_weights_v2.h5 --image {/absolute/path/to/image/or/directory/of/images/such/as/}fabric_defect_image_segmentation/data/sample_data/ --mask {/absolute/path/to/image/or/directory/of/images/such/as/}fabric_defect_image_segmentation/data/sample_masks/
 ~~~~
 
 This script can take additional arguments which include save options for masks, logits, and csv reports for found defects. Please see `--help` for more info.
@@ -115,7 +115,7 @@ ParentDirectory
 Once the data is downloaded to your system and has the above structure, the following command can be run to produce the refined training and validation data. *Refined, in this case, means maximizing the representation of the underrepresented classes in the training dataset.*
 
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.prepare_training_data --preprocess v2 --image-dirs {/absolute/path/to/training/Defect_images} {/absolute/path/to/training/NODefect_images} --mask-dirs {/absolute/path/to/Mask_images} --training-folder {/absolute/path/to/}data/training_data/
+python3 -m fabric_defect_image_segmentation.scripts.prepare_training_data --preprocess v2 --image-dirs {/absolute/path/to/training/Defect_images} {/absolute/path/to/training/NODefect_images} --mask-dirs {/absolute/path/to/Mask_images} --training-folder {/absolute/path/to/}data/training_data/
 ~~~~
 
 The initial patch extraction or the dataset refinement can be achieved by adding `--skip-extract` or `--skip-refine` flags, respectively. Other options can be seen by using `--help`.
@@ -125,7 +125,7 @@ The initial patch extraction or the dataset refinement can be achieved by adding
 Once training and validation datasets have been created (some are packaged with this repo in data/training_data), the resident UNet can be trained with the following command.
 
 ~~~~bash
-python3 -m loopr_image_segmentation.scripts.train_resident_unet --preprocess v2 --data-path {/absolute/path/to/model/save/directory/such/as}/loopr_image_segmentation/models/ --training-data {/absolute/path/to/training_data/such/as}/training_data/training_patches_pv2.h5 --validation-data {/absolute/path/to/training_data/such/as}/training_data/validation_patches_pv2.h5
+python3 -m fabric_defect_image_segmentation.scripts.train_resident_unet --preprocess v2 --data-path {/absolute/path/to/model/save/directory/such/as}/fabric_defect_image_segmentation/models/ --training-data {/absolute/path/to/training_data/such/as}/training_data/training_patches_pv2.h5 --validation-data {/absolute/path/to/training_data/such/as}/training_data/validation_patches_pv2.h5
 ~~~~
 
 See `--help` for additional options including an option for initializing a pretrained model for tuning (`--starting-model`). *Please note that v2 models require the 'v2' string in their naming convention.*

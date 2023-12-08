@@ -141,7 +141,7 @@ def reconstruct_image_from_patches(patches, stride, original_shape, agg_mode='mo
     return np.nan_to_num(reconstructed_image, nan=1)
 
 class ImageSegmentation:
-    def __init__(self, model_weights_path, mode=None, lr=0.001, defect_properties=None, spatial_attention=False):
+    def __init__(self, model_weights_path, mode=None, lr=0.001, defect_properties=None, spatial_attention=False, post_process=False):
         # Load your pretrained UNet model
         self.defect_labels = ['000','002','006','010',
                               '016','019','022','023',
@@ -169,6 +169,9 @@ class ImageSegmentation:
             self.load_pretrained_model(model_weights_path)
         else:
             self.mode=mode
+
+        if post_process:
+            self.post_process = self.initialize_cnn_pp(lr)
 
         # Sizes of the model input and output
         self.input_size = self.unet.input_shape[1:]
@@ -291,7 +294,7 @@ class ImageSegmentation:
 
         post_process = tf.keras.Sequential([
             tf.keras.layers.Conv2D(64, (3,3), activation='relu',
-                                   padding='same', input_shape=(256,4096,19)),
+                                   padding='same', input_shape=(16,256,19)),
             tf.keras.layers.Conv2D(64, (3,3), activation='relu',
                                    padding='same'),
             tf.keras.layers.Conv2D(13, (1,1), activation='softmax',
@@ -557,7 +560,7 @@ class ImageSegmentation:
 
         return d,p
 
-    def train_model(self, data_path, training_data, validation_data, batch_size=32, epochs=10):
+    def train_unet_model(self, data_path, training_data, validation_data, batch_size=32, epochs=10):
         if not training_data or not validation_data:
             raise ValueError("Training or validation data is not provided.")
 
@@ -631,9 +634,77 @@ class ImageSegmentation:
 
         # Save the final model
 
+    def train_pp_convnet_model(self, data_path, feature_images, logit_images, mask_images, batch_size=32, epochs=10):
+        if not feature_images or not logit_images or not mask_images:
+            raise ValueError("Training or validation data is not provided.")
+
+        features = h5py.File(feature_images)
+        logits = h5py.File(logit_images) 
+        #print(training['patches'].shape)
+        masks = h5py.File(mask_images)
+        # Define the ImageDataGenerator for training data
+        train_datagen = ImageDataGenerator(
+            # No rescaling needed
+            # Randomly flip images horizontally
+            horizontal_flip=True,
+            # Randomly flip images vertically
+            vertical_flip=True,
+            # Convert y to one-hot encoding
+            #preprocessing_function=self.one_hot_encoding
+        )
+
+        # Define the ImageDataGenerator for validation data
+        # val_datagen = ImageDataGenerator(
+        #     # No rescaling needed for validation data
+        #     # Convert y to one-hot encoding
+        #     #preprocessing_function=self.one_hot_encoding
+        # )
+
+        # Define the generators for training and validation data
+        train_generator = train_datagen.flow(
+            x=ski.transform.rescale(np.concatenate((features['patches'][:110],logits['patches'][:110]),axis=-1),(1.0,0.0625,0.0625,1)),
+            y=ski.transform.rescale(self.one_hot_encoding(masks['patches'][:110]),(1.0,0.0625,0.0625,1)),
+            batch_size=batch_size,
+            shuffle=True
+        )
+
+        # val_generator = val_datagen.flow(
+        #     x=validation['patches'][:,:,:,0:6],
+        #     y=self.one_hot_encoding(validation['patches'][:,:,:,6]),
+        #     batch_size=batch_size,
+        #     shuffle=False  # No need to shuffle validation data
+        # )
+
+        # Define the path for saving weights after each epoch
+        intermediate_dir = f'{data_path}/intermediate_weights'
+        os.makedirs(intermediate_dir, exist_ok=True)
+
+        # Define the ModelCheckpoint callback to save weights after each epoch
+        checkpoint_filepath = f'{intermediate_dir}/pp_convnet_weights_epoch_{{epoch:02d}}.h5'
+        
+
+        model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+            filepath=checkpoint_filepath,
+            save_weights_only=True,
+            verbose=1
+        )
+
+        # Train the model
+        history = self.post_process.fit(
+            train_generator,
+            epochs=epochs,
+            #validation_data=val_generator,
+            callbacks=[model_checkpoint_callback]
+        )
+        history_df = pd.DataFrame(history.history)
+    
+        history_df.to_csv(f'{data_path}/pp_convnet_training_history.csv', index=False)
+        self.post_process.save_weights(f'{data_path}/final_model_weights_pp_convnet.h5')
+
+
     def one_hot_encoding(self, y):
         # Convert y to one-hot encoding
-        one_hot_y = tf.one_hot(y, depth=len(self.defect_labels), axis=-1)
+        one_hot_y = tf.one_hot(tf.math.greater(y,0), depth=len(self.defect_labels), axis=-1)
         return one_hot_y
 
     def compile_prior_table(self, image_paths, mask_paths):

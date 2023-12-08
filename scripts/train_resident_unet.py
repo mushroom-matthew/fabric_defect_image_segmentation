@@ -26,7 +26,7 @@ def main():
     
     image_segmentation = ImageSegmentation(args.starting_model,mode=args.preprocess,lr=args.lr,spatial_attention=args.spatial_attention)
 
-    image_segmentation.train_model(args.data_path, args.training_data, 
+    image_segmentation.train_unet_model(args.data_path, args.training_data, 
                                    args.validation_data, args.batch_size, 
                                    args.epochs)
     
